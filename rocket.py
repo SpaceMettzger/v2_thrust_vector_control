@@ -26,9 +26,9 @@ class Rocket:
         self.pitch_angle = 0
         self.yaw_angle = 0
         self.roll_angle = 0
-        self.prev_pitch_angle = 0
-        self.prev_yaw_angle = 0
-        self.prev_roll_angle = 0
+        self.pitch_delta = 0
+        self.yaw_delta = 0
+        self.roll_delta = 0
         self.pitch_acceleration = 0
         self.yaw_acceleration = 0
         self.roll_acceleration = 0
@@ -173,37 +173,17 @@ class Rocket:
 
         return pitch_torque, yaw_torque
 
-    def should_start_counteracting(self, current_pitch, target_pitch, pitch_velocity, max_deceleration):
-        """
-        Determines if the rocket needs to start counteracting its rotation
-        to avoid overshooting the target angle.
+    @staticmethod
+    def control_system_correction(velocity, target_pitch, angle):
+        correction_angle = 0
+        if velocity < 0 and (target_pitch - angle) > 1e-3:
+            correction_angle = (velocity ** 2) / (2 * abs(target_pitch - angle))
+        if velocity > 0 and (target_pitch - angle) < 1e-3:
+            correction_angle = -(velocity ** 2) / (2 * abs(target_pitch - angle))
+        if correction_angle != 0:
+            print("Correction: ", correction_angle, target_pitch - angle, angle)
+        return correction_angle
 
-        Parameters:
-            current_pitch (float): The current pitch angle (degrees).
-            target_pitch (float): The desired pitch angle (degrees).
-            pitch_velocity (float): The current angular velocity (degrees/s).
-            max_deceleration (float): The maximum possible angular deceleration (degrees/s²).
-
-        Returns:
-            bool: True if counteracting should start, False otherwise.
-        """
-
-        # Compute remaining angle to target
-        delta_theta = target_pitch - current_pitch  # Remaining rotation needed
-
-        # If we're already at the target, no correction needed
-        if abs(delta_theta) < 1e-3:
-            return False
-
-        # Compute the required deceleration using kinematic equation:
-        # v^2 = v_0^2 + 2 * a * delta_theta  (solving for a)
-        if abs(delta_theta) > 1e-3 and pitch_velocity != 0:
-            required_deceleration = (pitch_velocity ** 2) / (2 * abs(delta_theta))
-        else:
-            required_deceleration = 0
-
-        # If required deceleration is more than what we can apply, we need to start counteracting
-        return required_deceleration > abs(max_deceleration)
 
     def update_thrust_vector(self, target_pitch, target_yaw, max_thrust_change=20, time_step=1):
         """
@@ -215,39 +195,30 @@ class Rocket:
             target_yaw (float): Desired yaw angle (degrees).
             max_thrust_change (float): Maximum allowed change in thrust vector per second (deg/s).
             time_step (float): Simulation time step (s).
-            damping_factor (float): Reduces velocity to smooth out oscillations.
         """
 
         max_change = max_thrust_change * time_step
-        max_thruster_deflection = -45  # Thruster can only tilt between -45° and +45°
+        max_thruster_deflection = 30  # Thruster can only tilt between -45° and +45°
 
-        error_pitch = target_pitch - self.pitch_angle
-        self.thrust_pitch += max(-max_change, min(max_change, error_pitch))
+        self.thrust_pitch = self.thrust_pitch + self.pitch_delta
+        self.thrust_yaw = self.thrust_yaw + self.yaw_delta
 
-        self.thrust_yaw += self.thrust_yaw - abs(self.yaw_angle - self.prev_yaw_angle)
+        pitch_correction = self.control_system_correction(self.pitch_velocity, target_pitch, self.pitch_angle)
+        if pitch_correction == 0:
+            pitch_correction = max(-max_change, min(max_change, target_pitch))
+            print("No correction: ", pitch_correction, target_pitch - self.pitch_angle, self.pitch_angle)
 
-        damping = 0.2
-        if self.pitch_angle - target_pitch > target_pitch / 10 and self.pitch_velocity !=0:
-            correction_pitch = -self.pitch_velocity * damping if abs(self.pitch_velocity) > 0.001 else 0
-            print(f"break_condition, correction pitch: {correction_pitch}")
-        else:
-            correction_pitch = max(-max_change, min(max_change, target_pitch))
-        print(self.pitch_angle - target_pitch, correction_pitch)
+        yaw_correction = self.control_system_correction(self.yaw_velocity, target_yaw, self.yaw_angle)
+        if yaw_correction > 0:
+            yaw_correction = max(-max_change, min(max_change, target_yaw))
+            print("No correction: ", yaw_correction, self.yaw_angle - self.thrust_yaw, self.yaw_angle)
 
-        should_brake_yaw = self.should_start_counteracting(self.yaw_angle, target_yaw, self.yaw_velocity,
-                                                      self.yaw_acceleration)
-
-        if should_brake_yaw:
-            correction_yaw = - (self.yaw_velocity ** 2) / (2 * self.yaw_acceleration) if self.yaw_acceleration != 0 else 0
-        else:
-            correction_yaw = max(-max_change, min(max_change, target_yaw))
-
-        self.thrust_pitch = max(-max_thruster_deflection - self.pitch_angle,
-                                min(max_thruster_deflection -  self.pitch_angle, self.pitch_angle + correction_pitch))
-        self.thrust_yaw = max(-max_thruster_deflection - self.yaw_angle, min(max_thruster_deflection + self.yaw_angle, self.thrust_yaw + correction_yaw))
+        self.thrust_pitch += pitch_correction
+        self.thrust_yaw += yaw_correction
 
     def record_rocket_params(self):
         self.thrust_values.append(self.get_thrust())
+        self.pitch_delta = self.pitch_angle - self.pitch_delta
         self.pitch_angles.append(self.pitch_angle)
         self.yaw_angles.append(self.yaw_angle)
         self.roll_angles.append(self.roll_angle)

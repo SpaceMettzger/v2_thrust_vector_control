@@ -24,7 +24,6 @@ def calculate_mass_flow_rate(nasa_cea: bool = False, choked_flow: bool = False) 
         isp_vac = cea.get_Isp(Pc=pc, MR=mr, eps=expansion_ratio)
         # ve = isp_vac * 9.81  # Convert Isp to exhaust velocity in m/s
         # molecular_weight, gamma_throat = cea.get_Throat_MolWt_gamma(Pc=pc, MR=mr)
-        print(isp_vac)
 
         g0 = 9.81  # Gravity acceleration in m/s²
         a_e = 0.21  # Effective nozzle exit area in m²
@@ -290,4 +289,3 @@ if __name__ == "__main__":
     print(calculate_mass_flow_rate(nasa_cea=True))
     print(calculate_mass_flow_rate(choked_flow=True))
     print(calculate_mass_flow_rate())
-    print(calculate_thrust())
