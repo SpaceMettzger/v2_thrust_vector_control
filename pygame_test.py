@@ -204,13 +204,13 @@ while running:
     # **Read Key Inputs for Thrust Vectoring**
     keys = pygame.key.get_pressed()
     if keys[K_UP]:  # Increase pitch (tilt down)
-        rocket.update_thrust_vector(rocket.thrust_pitch - max_gimbal_rate, rocket.thrust_yaw, max_gimbal_rate, dt)
+        rocket.update_thruster_deflection(rocket.thrust_pitch - max_gimbal_rate, rocket.thrust_yaw, max_gimbal_rate, dt)
     if keys[K_DOWN]:  # Decrease pitch (tilt up)
-        rocket.update_thrust_vector(rocket.thrust_pitch + max_gimbal_rate, rocket.thrust_yaw, max_gimbal_rate, dt)
+        rocket.update_thruster_deflection(rocket.thrust_pitch + max_gimbal_rate, rocket.thrust_yaw, max_gimbal_rate, dt)
     if keys[K_LEFT]:  # Yaw left
-        rocket.update_thrust_vector(rocket.thrust_pitch, rocket.thrust_yaw - max_gimbal_rate, max_gimbal_rate, dt)
+        rocket.update_thruster_deflection(rocket.thrust_pitch, rocket.thrust_yaw - max_gimbal_rate, max_gimbal_rate, dt)
     if keys[K_RIGHT]:  # Yaw right
-        rocket.update_thrust_vector(rocket.thrust_pitch, rocket.thrust_yaw + max_gimbal_rate, max_gimbal_rate, dt)
+        rocket.update_thruster_deflection(rocket.thrust_pitch, rocket.thrust_yaw + max_gimbal_rate, max_gimbal_rate, dt)
 
     # **Calculate Rocket Physics**
     thrust_force = rocket.get_thrust()

@@ -1,3 +1,4 @@
+import numpy as np
 import thrust
 import math
 
@@ -37,6 +38,7 @@ class Rocket:
         self.roll_velocity = 0
         self.thrust_pitch = 0
         self.thrust_yaw = 0
+        self.thrust_roll = 0
 
         self.thrust_values = []
         self.pitch_angles = []
@@ -170,8 +172,9 @@ class Rocket:
         # Compute torque only for the difference between current rocket angle and thrust vector
         pitch_torque = lever_arm * thrust_force * math.sin(math.radians(self.thrust_pitch))
         yaw_torque = lever_arm * thrust_force * math.sin(math.radians(self.thrust_yaw))
+        roll_torque = lever_arm * thrust_force * math.sin(math.radians(self.thrust_roll))
 
-        return pitch_torque, yaw_torque
+        return pitch_torque, yaw_torque, roll_torque
 
     @staticmethod
     def control_system_correction(velocity, target_pitch, angle):
@@ -181,11 +184,12 @@ class Rocket:
         if velocity > 0 and (target_pitch - angle) < 1e-3:
             correction_angle = -(velocity ** 2) / (2 * abs(target_pitch - angle))
         if correction_angle != 0:
-            print("Correction: ", correction_angle, target_pitch - angle, angle)
+            pass
+            # print("Correction: ", correction_angle, target_pitch - angle, angle)
         return correction_angle
 
 
-    def update_thrust_vector(self, target_pitch, target_yaw, max_thrust_change=20, time_step=1):
+    def update_thruster_deflection(self, target_pitch, target_yaw, max_thrust_change=20, time_step=1):
         """
         Updates the thrust vector towards the target while ensuring smooth control,
         preventing overshoot, and respecting thruster limitations.
@@ -206,15 +210,50 @@ class Rocket:
         pitch_correction = self.control_system_correction(self.pitch_velocity, target_pitch, self.pitch_angle)
         if pitch_correction == 0:
             pitch_correction = max(-max_change, min(max_change, target_pitch))
-            print("No correction: ", pitch_correction, target_pitch - self.pitch_angle, self.pitch_angle)
 
         yaw_correction = self.control_system_correction(self.yaw_velocity, target_yaw, self.yaw_angle)
-        if yaw_correction > 0:
+        if yaw_correction == 0:
             yaw_correction = max(-max_change, min(max_change, target_yaw))
-            print("No correction: ", yaw_correction, self.yaw_angle - self.thrust_yaw, self.yaw_angle)
 
         self.thrust_pitch += pitch_correction
         self.thrust_yaw += yaw_correction
+
+    def calculate_thruster_deflection_transformation(self):
+        # Convert degrees to radians
+        thrust_pitch_rad = math.radians(self.thrust_pitch)
+        thrust_yaw_rad = math.radians(self.thrust_yaw)
+        thrust_roll_rad = math.radians(self.thrust_roll)
+        rocket_pitch_rad = math.radians(self.pitch_angle)
+        rocket_yaw_rad = math.radians(self.yaw_angle)
+        rocket_roll_rad = math.radians(self.roll_angle)
+
+        # Define thrust vector in LOCAL rocket frame (already deflected)
+        thrust_vector = (self.get_thrust()) * np.array([
+            math.sin(thrust_pitch_rad),  # X-component (from pitch deflection)
+            math.cos(thrust_pitch_rad),  # Y-component (dominates if no yaw)
+            math.sin(thrust_yaw_rad)  # No initial Z-component (yaw rotates this later)
+        ])
+
+        # print(thrust_vector)
+
+        r_yaw = np.matrix([
+            [1, 0, 0],
+            [0, math.cos(rocket_yaw_rad), -math.sin(rocket_yaw_rad)],
+            [0, math.sin(rocket_yaw_rad), math.cos(rocket_yaw_rad)]
+        ])
+
+        r_pitch = np.array([
+            [math.cos(rocket_pitch_rad), -math.sin(rocket_pitch_rad), 0],
+            [math.sin(rocket_pitch_rad), math.cos(rocket_pitch_rad), 0],
+            [0, 0, 1]
+        ])
+
+        # Apply the transformation
+        global_thrust_vector = r_yaw @ r_pitch @ thrust_vector
+
+        print(global_thrust_vector.A1)  # print(global_thrust_vector)
+        return global_thrust_vector.A1[0], global_thrust_vector.A1[1], global_thrust_vector.A1[2]
+
 
     def record_rocket_params(self):
         self.thrust_values.append(self.get_thrust())

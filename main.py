@@ -1,10 +1,8 @@
 import rocket_physics as rp
-import thrust
 from rocket import Rocket
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.widgets import Slider
-import math
 
 
 # Initialize Rocket
@@ -15,11 +13,18 @@ t = 0
 time_step = 1  # s
 total_time = 500  # s
 
-thrust_vector_waypoints = {0: {"pitch": 0, "yaw": 0},
-                           10: {"pitch": -90, "yaw": 0},
-                           20: {"pitch": -90, "yaw": 0},
-                           30: {"pitch": -90, "yaw": 0},
-                           40: {"pitch": -90, "yaw": 0}}
+
+thrust_vector_waypoints = {0: {"yaw": 0, "pitch": 0},
+                           10: {"yaw": 0, "pitch": 90},
+                           20: {"yaw": 0, "pitch": 90},
+                           30: {"yaw": 0, "pitch": 90},
+                           40: {"yaw": 0, "pitch": 90}}
+
+thrust_vector_waypoints = {0: {"yaw": 0, "pitch": 0},
+                           10: {"yaw": 90, "pitch": 0},
+                           20: {"yaw": 90, "pitch": 0},
+                           30: {"yaw": 90, "pitch": 0},
+                           40: {"yaw": 90, "pitch": 0}}
 
 
 # Store trajectory and attitude data
@@ -35,13 +40,12 @@ while rocket.y_position >= 0:
     rocket.update_flight_time(time_step)
 
     if t in thrust_vector_waypoints:
-        target_pitch = thrust_vector_waypoints[t]["pitch"]
         target_yaw = thrust_vector_waypoints[t]["yaw"]
+        target_pitch = thrust_vector_waypoints[t]["pitch"]
 
-    rocket.update_thrust_vector(target_pitch, target_yaw)
+    rocket.update_thruster_deflection(target_pitch, target_yaw)
 
-    pitch_torque, yaw_torque = rocket.get_torque()
-    roll_torque = 0  # No roll control for now
+    pitch_torque, yaw_torque, roll_torque= rocket.get_torque()
 
     # Compute angular acceleration (rotation effect)
     rp.calculate_angular_acceleration(rocket,
@@ -51,7 +55,8 @@ while rocket.y_position >= 0:
                                  time_step)
 
     # Compute thrust components in x, y, z
-    thrust_x, thrust_y, thrust_z = thrust.calculate_thrust_vector_components(rocket)
+    # thrust_x, thrust_y, thrust_z = thrust.calculate_thrust_vector_components(rocket)
+    thrust_x, thrust_y, thrust_z = rocket.calculate_thruster_deflection_transformation()
 
     # print(thrust_x, thrust_y, thrust_z)
 
