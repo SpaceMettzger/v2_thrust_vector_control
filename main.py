@@ -5,7 +5,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.widgets import Slider
 
 
-def run_simulation(thrust_vector_waypoints):
+def run_simulation(thrust_vector_waypoints, vector_control: bool = True):
     # Initialize Rocket
     rocket = Rocket()
 
@@ -34,16 +34,21 @@ def run_simulation(thrust_vector_waypoints):
             target_yaw = thrust_vector_waypoints[t]["yaw"]
             target_pitch = rp.convert_target_pitch_yup_to_ned(thrust_vector_waypoints[t]["pitch"])
 
-        rocket.update_thruster_deflection(target_pitch, target_yaw)
+        if vector_control:
+            # rocket.update_thruster_deflection(target_pitch, target_yaw)
+            rocket.update_thruster_deflection_simple(target_pitch, target_yaw)
 
-        pitch_torque, yaw_torque, roll_torque= rocket.get_torque()
-        pitch_torques.append(pitch_torque)
-        yaw_torques.append(yaw_torque)
+            pitch_torque, yaw_torque, roll_torque= rocket.get_torque()
+            pitch_torques.append(pitch_torque)
+            yaw_torques.append(yaw_torque)
 
-        rp.calculate_angular_acceleration(rocket,
-            pitch_torque, yaw_torque, roll_torque)
+            rp.calculate_angular_acceleration(rocket,
+                pitch_torque, yaw_torque, roll_torque)
 
-        rocket.update_angular_motion(time_step)
+            rocket.update_angular_motion(time_step)
+        else:
+            rocket.pitch_angle = target_pitch
+            rocket.yaw_angle = target_yaw
 
         thrust_x, thrust_y, thrust_z = rocket.calculate_thruster_deflection_transformation()
         thrust_vectors.append([float(thrust_x), float(thrust_y), float(thrust_z)])
@@ -53,11 +58,6 @@ def run_simulation(thrust_vector_waypoints):
         rocket.update_velocity(acceleration_x, acceleration_y, acceleration_z, time_step)
 
         rocket.update_position(time_step)
-        """
-        print("Thrust: ", thrust_x, thrust_y, thrust_z)
-        print("Acceleration: ", acceleration_x, acceleration_y, acceleration_z)
-        print("Global_positions: ", rocket.x_position, rocket.y_position, rocket.z_position)
-        """
 
         time_values.append(t)
         x_positions.append(rocket.x_position)
@@ -67,11 +67,6 @@ def run_simulation(thrust_vector_waypoints):
         rocket.record_rocket_params()
 
         t += time_step
-
-    # print("pitch_angles: ", rocket.records["pitch_angles"])
-    # print("yaw_angles: ", rocket.records["yaw_angles"])
-    print("lateral_accelerations: ", rocket.records["lateral_accelerations"])
-
 
     return rocket, x_positions, y_positions, z_positions, time_values
 
@@ -135,10 +130,10 @@ def plot(rocket, x_positions, y_positions, z_positions, time_values):
 
 if __name__ == "__main__":
     thrust_vector_waypoints_yaw = {0: {"yaw": 0, "pitch": 0},
-                                   10: {"yaw": 90, "pitch": 0},
-                                   20: {"yaw": 90, "pitch": 0},
-                                   30: {"yaw": 90, "pitch": 0},
-                                   40: {"yaw": 90, "pitch": 0}}
+                                   10: {"yaw": 45, "pitch": 45},
+                                   20: {"yaw": 45, "pitch": 45},
+                                   30: {"yaw": 45, "pitch": 45},
+                                   40: {"yaw": 45, "pitch": 45}}
 
     thrust_vector_waypoints_pitch = {0: {"yaw": 0, "pitch": 0},
                                      10: {"yaw": 0, "pitch": 90},
@@ -146,6 +141,7 @@ if __name__ == "__main__":
                                      30: {"yaw": 0, "pitch": 90},
                                      40: {"yaw": 0, "pitch": 90}}
 
-    rocket, x_positions, y_positions, z_positions, time_values = run_simulation(thrust_vector_waypoints_pitch)
-    # rocket, x_positions, y_positions, z_positions, time_values = run_simulation(thrust_vector_waypoints_yaw)
-    plot(rocket, x_positions, y_positions, z_positions, time_values)
+    rocket_pitch, x_positions_pitch, y_positions_pitch, z_positions_pitch, time_values_pitch = run_simulation(thrust_vector_waypoints_pitch, vector_control=False)
+    rocket_yaw, x_positions_yaw, y_positions_yaw, z_positions_yaw, time_values_yaw = run_simulation(thrust_vector_waypoints_yaw, vector_control=False)
+    plot(rocket_pitch, x_positions_pitch, y_positions_pitch, z_positions_pitch, time_values_pitch)
+    plot(rocket_yaw, x_positions_yaw, y_positions_yaw, z_positions_yaw, time_values_yaw)
