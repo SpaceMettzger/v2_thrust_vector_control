@@ -244,8 +244,6 @@ def calculate_thrust_vector_components_old(thrust, pitch_angle, yaw_angle):
 
     return thrust_x, thrust_y, thrust_z
 
-import numpy as np
-
 def calculate_thrust_vector_components(rocket):
     """
     Computes the thrust force components in global X, Y, and Z directions,
