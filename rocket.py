@@ -58,91 +58,13 @@ class Rocket:
             "lateral_positions": []
         }
 
-    def calculate_center_of_mass(self):
-        """
-        Computes the center of mass of the rocket dynamically as fuel is consumed.
-
-        Returns:
-            float: Center of mass (m) from the tail.
-        """
+    def calculate_fuel_consumption(self):
         consumed_fuel = min(self.mass_fuel, self.mass_flow_rate * self.flight_time)
         self.current_fuel = max(0, self.mass_fuel - consumed_fuel)
-        self.current_mass = self.dry_mass + self.current_fuel
-
-        center_of_mass_warhead = self.warhead_weight * (self.length_warhead / 2)
-        center_of_mass_body = self.current_mass * ((self.length - self.length_warhead) / 2)
-
-        return (center_of_mass_warhead + center_of_mass_body) / self.current_mass
-
-    def update_flight_time(self, dt):
-        """
-        Advances the rocket's flight time.
-
-        Parameters:
-            dt (float): Time step (seconds).
-        """
-        self.flight_time += dt
-
-    def update_angular_motion(self, time_step=1, damping_factor=0.2):
-        """
-        Updates the rocket's angular velocity and angles (pitch, yaw, roll) over time,
-        preserving inertia while introducing damping to prevent oscillations.
-
-        Parameters:
-            time_step (float): Simulation time step (s).
-            damping_factor (float): Reduces angular velocity over time.
-        """
-
-        self.pitch_velocity = (self.pitch_velocity + self.pitch_acceleration * time_step) * (1 - damping_factor)
-        self.yaw_velocity = (self.yaw_velocity + self.yaw_acceleration * time_step) * (1 - damping_factor)
-        self.roll_velocity = (self.roll_velocity + self.roll_acceleration * time_step) * (1 - damping_factor)
-
-        self.pitch_angle += self.pitch_velocity * time_step
-        self.yaw_angle += self.yaw_velocity * time_step
-        self.roll_angle += self.roll_velocity * time_step
-
-
-    def update_velocity(self, acceleration_x, acceleration_y, acceleration_z, time_step=1):
-        """
-        Updates velocity components in the Aerospace (NED) coordinate system.
-
-        Parameters:
-            acceleration_x (float): Linear acceleration in m/s² along x-axis.
-            acceleration_y (float): Linear acceleration in m/s² along y-axis.
-            acceleration_z (float): Linear acceleration in m/s² along z-axis.
-            time_step (float): Simulation time step in seconds.
-        """
-        self.x_velocity += acceleration_x * time_step
-        self.y_velocity += acceleration_y * time_step
-        self.z_velocity += acceleration_z * time_step
-
-    def update_position(self, time_step=1):
-        """
-        Updates position using Euler integration in the Aerospace (NED) coordinate system.
-
-        Parameters:
-            time_step (float): Simulation time step in seconds.
-        """
-        self.x_position += self.x_velocity * time_step
-        self.y_position += self.y_velocity * time_step
-        self.z_position += self.z_velocity * time_step
 
     def get_thrust(self):
         thrust_val = thrust.calculate_thrust(self.mass_flow_rate, self.specific_impulse_sea_level) if self.current_fuel > 0 else 0
         return thrust_val
-
-    def get_torque(self):
-        """Computes torque based on the difference between thrust vector and body orientation."""
-        thrust_force = self.get_thrust()
-        lever_arm = self.length - self.calculate_center_of_mass()
-
-
-        # Compute torque in the Aerospace (NED) frame using LOCAL deflection
-        pitch_torque = lever_arm * thrust_force * math.sin(math.radians(self.thrust_pitch_local))  # Now around Y-axis
-        yaw_torque = lever_arm * thrust_force * math.sin(math.radians(self.thrust_yaw_local))  # Now around Z-axis
-        roll_torque = lever_arm * thrust_force * math.sin(math.radians(self.thrust_roll_local))  # Remains around X-axis
-
-        return pitch_torque, yaw_torque, roll_torque
 
     @staticmethod
     def control_system_correction(velocity, target_pitch, angle):
@@ -205,8 +127,6 @@ class Rocket:
         self.thrust_pitch_local =  target_pitch
         self.thrust_yaw_local = target_yaw
 
-
-
     def calculate_thruster_deflection_transformation(self):
         def define_rotation_matrices(axis: str, angle_rad):
             if axis == "x":
@@ -243,9 +163,7 @@ class Rocket:
         self.records["local_thrust_vectors"].append([float(thrust_vector[0]), float(thrust_vector[1]), float(thrust_vector[2])])
 
         r_yaw = define_rotation_matrices("x", rocket_yaw_rad)
-
         r_pitch = define_rotation_matrices("y", -rocket_pitch_rad)
-
         r_roll = define_rotation_matrices("z", rocket_roll_rad)
 
         global_thrust_vector = r_roll @ r_pitch @ r_yaw @ thrust_vector

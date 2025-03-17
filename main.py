@@ -6,29 +6,22 @@ from matplotlib.widgets import Slider
 
 
 def run_simulation(thrust_vector_waypoints, vector_control: bool = True):
-    # Initialize Rocket
+
     rocket = Rocket()
 
-    # Simulation Parameters
     t = 0
     time_step = 1  # s
-    total_time = 500  # s
+    total_time = 10000  # s
 
-
-    # Store trajectory and attitude data
     time_values = []
     x_positions = []
     y_positions = []
     z_positions = []
-    pitch_torques = []
-    yaw_torques = []
-    thrust_vectors = []
 
     target_pitch, target_yaw = 0, 0
 
-    # Run Simulation
     while rocket.z_position >= 0 and t <= total_time:
-        rocket.update_flight_time(time_step)
+        rp.update_flight_time(rocket, time_step)
 
         if t in thrust_vector_waypoints:
             target_yaw = thrust_vector_waypoints[t]["yaw"]
@@ -38,26 +31,24 @@ def run_simulation(thrust_vector_waypoints, vector_control: bool = True):
             # rocket.update_thruster_deflection(target_pitch, target_yaw)
             rocket.update_thruster_deflection_simple(target_pitch, target_yaw)
 
-            pitch_torque, yaw_torque, roll_torque= rocket.get_torque()
-            pitch_torques.append(pitch_torque)
-            yaw_torques.append(yaw_torque)
+            pitch_torque, yaw_torque, roll_torque= rp.get_torque(rocket)
 
             rp.calculate_angular_acceleration(rocket,
                 pitch_torque, yaw_torque, roll_torque)
 
-            rocket.update_angular_motion(time_step)
+            rp.update_angular_motion(rocket, time_step)
         else:
+            rocket.calculate_fuel_consumption()  # Needed to determine when thrust stops
             rocket.pitch_angle = target_pitch
             rocket.yaw_angle = target_yaw
 
         thrust_x, thrust_y, thrust_z = rocket.calculate_thruster_deflection_transformation()
-        thrust_vectors.append([float(thrust_x), float(thrust_y), float(thrust_z)])
 
         acceleration_x, acceleration_y, acceleration_z = rp.calculate_linear_acceleration(
             thrust_x, thrust_y, thrust_z, rocket)
-        rocket.update_velocity(acceleration_x, acceleration_y, acceleration_z, time_step)
+        rp.update_velocity(rocket, acceleration_x, acceleration_y, acceleration_z, time_step)
 
-        rocket.update_position(time_step)
+        rp.update_position(rocket, time_step)
 
         time_values.append(t)
         x_positions.append(rocket.x_position)
@@ -145,3 +136,5 @@ if __name__ == "__main__":
     rocket_yaw, x_positions_yaw, y_positions_yaw, z_positions_yaw, time_values_yaw = run_simulation(thrust_vector_waypoints_yaw, vector_control=False)
     plot(rocket_pitch, x_positions_pitch, y_positions_pitch, z_positions_pitch, time_values_pitch)
     plot(rocket_yaw, x_positions_yaw, y_positions_yaw, z_positions_yaw, time_values_yaw)
+
+    # Todo - Check damping_factor in update_angular_motion

@@ -1,5 +1,91 @@
 import math
 
+
+def calculate_center_of_mass(rocket):
+    """
+    Computes the center of mass of the rocket dynamically as fuel is consumed.
+
+    Returns:
+        float: Center of mass (m) from the tail.
+    """
+    rocket.calculate_fuel_consumption()
+
+    rocket.current_mass = rocket.dry_mass + rocket.current_fuel
+
+    center_of_mass_warhead = rocket.warhead_weight * (rocket.length_warhead / 2)
+    center_of_mass_body = rocket.current_mass * ((rocket.length - rocket.length_warhead) / 2)
+
+    return (center_of_mass_warhead + center_of_mass_body) / rocket.current_mass
+
+
+def update_flight_time(rocket, dt):
+    """
+    Advances the rocket's flight time.
+
+    Parameters:
+        dt (float): Time step (seconds).
+    """
+    rocket.flight_time += dt
+
+
+def update_angular_motion(rocket, time_step=1, damping_factor=0.2):
+    """
+    Updates the rocket's angular velocity and angles (pitch, yaw, roll) over time,
+    preserving inertia while introducing damping to prevent oscillations.
+
+    Parameters:
+        time_step (float): Simulation time step (s).
+        damping_factor (float): Reduces angular velocity over time.
+    """
+
+    rocket.pitch_velocity = (rocket.pitch_velocity + rocket.pitch_acceleration * time_step) * (1 - damping_factor)
+    rocket.yaw_velocity = (rocket.yaw_velocity + rocket.yaw_acceleration * time_step) * (1 - damping_factor)
+    rocket.roll_velocity = (rocket.roll_velocity + rocket.roll_acceleration * time_step) * (1 - damping_factor)
+
+    rocket.pitch_angle += rocket.pitch_velocity * time_step
+    rocket.yaw_angle += rocket.yaw_velocity * time_step
+    rocket.roll_angle += rocket.roll_velocity * time_step
+
+
+def update_velocity(rocket, acceleration_x, acceleration_y, acceleration_z, time_step=1):
+    """
+    Updates velocity components in the Aerospace (NED) coordinate system.
+
+    Parameters:
+        acceleration_x (float): Linear acceleration in m/s² along x-axis.
+        acceleration_y (float): Linear acceleration in m/s² along y-axis.
+        acceleration_z (float): Linear acceleration in m/s² along z-axis.
+        time_step (float): Simulation time step in seconds.
+    """
+    rocket.x_velocity += acceleration_x * time_step
+    rocket.y_velocity += acceleration_y * time_step
+    rocket.z_velocity += acceleration_z * time_step
+
+
+def update_position(rocket, time_step=1):
+    """
+    Updates position using Euler integration in the Aerospace (NED) coordinate system.
+
+    Parameters:
+        time_step (float): Simulation time step in seconds.
+    """
+    rocket.x_position += rocket.x_velocity * time_step
+    rocket.y_position += rocket.y_velocity * time_step
+    rocket.z_position += rocket.z_velocity * time_step
+
+
+def get_torque(rocket):
+    """Computes torque based on the difference between thrust vector and body orientation."""
+    thrust_force = rocket.get_thrust()
+    lever_arm = rocket.length - calculate_center_of_mass(rocket)
+
+    # Compute torque in the Aerospace (NED) frame using LOCAL deflection
+    pitch_torque = lever_arm * thrust_force * math.sin(math.radians(rocket.thrust_pitch_local))  # Now around Y-axis
+    yaw_torque = lever_arm * thrust_force * math.sin(math.radians(rocket.thrust_yaw_local))  # Now around Z-axis
+    roll_torque = lever_arm * thrust_force * math.sin(math.radians(rocket.thrust_roll_local))  # Remains around X-axis
+
+    return pitch_torque, yaw_torque, roll_torque
+
 def calculate_inertia(mass, radius, length):
     pitch_and_yaw_inertia = (mass * radius**2) / 4 + (mass * length**2) / 12
     roll_inertia = (mass * radius**2) / 2
