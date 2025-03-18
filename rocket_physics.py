@@ -60,6 +60,7 @@ def update_velocity(rocket, acceleration_x, acceleration_y, acceleration_z, time
     rocket.x_velocity += acceleration_x * time_step
     rocket.y_velocity += acceleration_y * time_step
     rocket.z_velocity += acceleration_z * time_step
+    print(rocket.x_velocity, rocket.y_velocity, rocket.z_velocity)
 
 
 def update_position(rocket, time_step=1):
@@ -127,9 +128,9 @@ def calculate_linear_acceleration(thrust_x, thrust_y, thrust_z, rocket):
     drag_x, drag_y, drag_z = calculate_drag(rocket)
 
     # Compute acceleration (F = ma)
-    acceleration_x = (thrust_x + drag_x) / rocket.current_mass
-    acceleration_y = (thrust_y + drag_y) / rocket.current_mass
-    acceleration_z = (thrust_z + drag_z) / rocket.current_mass
+    acceleration_x = (thrust_x + drag_x / 2) / rocket.current_mass
+    acceleration_y = (thrust_y + drag_y / 2) / rocket.current_mass
+    acceleration_z = (thrust_z + drag_z / 2) / rocket.current_mass
 
     acceleration_z -= 9.81  # Gravity in the downward (NED) direction
     rocket.records["lateral_accelerations"].append([float(acceleration_x), float(acceleration_y), float(acceleration_z)])

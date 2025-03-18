@@ -1,6 +1,8 @@
 import numpy as np
+from TVCControler import TVCController, TVC_MPC
 import thrust
 import math
+import rocket_physics
 
 class Rocket:
     def __init__(self):
@@ -38,6 +40,8 @@ class Rocket:
         self.thrust_pitch_local = 0
         self.thrust_yaw_local = 0
         self.thrust_roll_local = 0
+        self.PID_control_system = TVCController(Kp=0, Ki=0, Kd=0, Kv=0)
+        self.MPC_control_system = TVC_MPC(dt=0.1, horizon=10)
 
         self.records = {
             "thrust_values": [],
@@ -77,7 +81,7 @@ class Rocket:
             pass
         return correction_angle
 
-    def update_thruster_deflection(self, target_pitch, target_yaw, max_thrust_change=20, time_step=1):
+    def update_thruster_deflection_old(self, target_pitch, target_yaw, max_thrust_change=20, time_step=1):
         """
         Adjusts thruster deflection based on the difference between the rocket's orientation and the target thrust direction.
 
@@ -112,6 +116,17 @@ class Rocket:
 
         self.thrust_pitch_local = max(-max_thruster_deflection, min(max_thruster_deflection, self.thrust_pitch_local))
         self.thrust_yaw_local = max(-max_thruster_deflection, min(max_thruster_deflection, self.thrust_yaw_local))
+
+    def update_thruster_deflection(self, target_pitch, target_yaw, max_thrust_change):
+        self.thrust_pitch_local, self.thrust_yaw_local = (
+            self.MPC_control_system.compute_control(target_pitch=target_pitch,
+                                                    current_pitch=self.pitch_angle,
+                                                    pitch_velocity=self.pitch_velocity,
+                                                    target_yaw=target_yaw,
+                                                    current_yaw=self.yaw_angle,
+                                                    yaw_velocity=self.yaw_velocity,
+                                                    max_angle=30,
+                                                    max_rate=max_thrust_change))
 
     def update_thruster_deflection_simple(self, target_pitch, target_yaw, max_thrust_change=1000, time_step=1):
         """
@@ -184,3 +199,4 @@ class Rocket:
         self.records["roll_velocities"].append(self.roll_velocity)
         self.records["thrust_pitch_angles"].append(self.thrust_pitch_local)
         self.records["thrust_yaw_angles"].append(self.thrust_yaw_local)
+        self.records["lateral_velocities"].append(np.linalg.norm(np.array([self.x_velocity, self.y_velocity, self.z_velocity])))

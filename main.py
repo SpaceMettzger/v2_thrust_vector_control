@@ -28,8 +28,8 @@ def run_simulation(thrust_vector_waypoints, vector_control: bool = True):
             target_pitch = rp.convert_target_pitch_yup_to_ned(thrust_vector_waypoints[t]["pitch"])
 
         if vector_control:
-            # rocket.update_thruster_deflection(target_pitch, target_yaw)
-            rocket.update_thruster_deflection_simple(target_pitch, target_yaw)
+            rocket.update_thruster_deflection(target_pitch, target_yaw, 20)
+            # rocket.update_thruster_deflection_simple(target_pitch, target_yaw)
 
             pitch_torque, yaw_torque, roll_torque= rp.get_torque(rocket)
 
@@ -58,6 +58,8 @@ def run_simulation(thrust_vector_waypoints, vector_control: bool = True):
         rocket.record_rocket_params()
 
         t += time_step
+
+    print(max(rocket.records['lateral_velocities']))
 
     return rocket, x_positions, y_positions, z_positions, time_values
 
@@ -132,9 +134,11 @@ if __name__ == "__main__":
                                      30: {"yaw": 0, "pitch": 90},
                                      40: {"yaw": 0, "pitch": 90}}
 
-    rocket_pitch, x_positions_pitch, y_positions_pitch, z_positions_pitch, time_values_pitch = run_simulation(thrust_vector_waypoints_pitch, vector_control=False)
-    rocket_yaw, x_positions_yaw, y_positions_yaw, z_positions_yaw, time_values_yaw = run_simulation(thrust_vector_waypoints_yaw, vector_control=False)
+    rocket_pitch, x_positions_pitch, y_positions_pitch, z_positions_pitch, time_values_pitch = run_simulation(
+        thrust_vector_waypoints_pitch, vector_control=True)
+    rocket_yaw, x_positions_yaw, y_positions_yaw, z_positions_yaw, time_values_yaw = run_simulation(
+        thrust_vector_waypoints_yaw, vector_control=False)
     plot(rocket_pitch, x_positions_pitch, y_positions_pitch, z_positions_pitch, time_values_pitch)
-    plot(rocket_yaw, x_positions_yaw, y_positions_yaw, z_positions_yaw, time_values_yaw)
+    # plot(rocket_yaw, x_positions_yaw, y_positions_yaw, z_positions_yaw, time_values_yaw)
 
     # Todo - Check damping_factor in update_angular_motion
