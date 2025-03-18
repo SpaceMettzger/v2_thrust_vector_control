@@ -1,12 +1,11 @@
 import numpy as np
-from TVCControler import TVCController, TVC_MPC
+from TVCControler import TVC_PID, TVC_MPC
 import thrust
 import math
-import rocket_physics
 
 class Rocket:
     def __init__(self):
-        self.mass_gross = 12900 # kg
+        self.mass_gross = 12500 # kg
         self.mass_fuel = 8720 # kg
         self.dry_mass = self.mass_gross - self.mass_fuel
         self.current_mass = self.mass_gross
@@ -17,6 +16,8 @@ class Rocket:
         self.diameter = 1.651 # m
         self.specific_impulse_sea_level = 203 # s
         self.mass_flow_rate = thrust.calculate_mass_flow_rate()
+        self.max_thruster_deflection = 30
+        self.thruster_rate_of_change = 20
         self.flight_time = 0
 
         self.x_position = 0
@@ -40,7 +41,7 @@ class Rocket:
         self.thrust_pitch_local = 0
         self.thrust_yaw_local = 0
         self.thrust_roll_local = 0
-        self.PID_control_system = TVCController(Kp=0, Ki=0, Kd=0, Kv=0)
+        self.PID_control_system = TVC_PID(Kp=2, Ki=0.2, Kd=2, Kv=1)
         self.MPC_control_system = TVC_MPC(dt=0.1, horizon=10)
 
         self.records = {
@@ -65,6 +66,7 @@ class Rocket:
     def calculate_fuel_consumption(self):
         consumed_fuel = min(self.mass_fuel, self.mass_flow_rate * self.flight_time)
         self.current_fuel = max(0, self.mass_fuel - consumed_fuel)
+        self.current_mass = self.mass_gross - consumed_fuel
 
     def get_thrust(self):
         thrust_val = thrust.calculate_thrust(self.mass_flow_rate, self.specific_impulse_sea_level) if self.current_fuel > 0 else 0
@@ -81,19 +83,17 @@ class Rocket:
             pass
         return correction_angle
 
-    def update_thruster_deflection_old(self, target_pitch, target_yaw, max_thrust_change=20, time_step=1):
+    def update_thruster_deflection_old(self, target_pitch, target_yaw, time_step=1):
         """
         Adjusts thruster deflection based on the difference between the rocket's orientation and the target thrust direction.
 
         Parameters:
             target_pitch (float): Desired pitch in NED frame (degrees).
             target_yaw (float): Desired yaw in NED frame (degrees).
-            max_thrust_change (float): Maximum allowed deflection change per second (deg/s).
             time_step (float): Simulation time step (s).
         """
 
-        max_deflection_change = max_thrust_change * time_step
-        max_thruster_deflection = 30
+        max_deflection_change = self.thruster_rate_of_change * time_step
 
         pitch_error = target_pitch - self.pitch_angle
         yaw_error = target_yaw - self.yaw_angle
@@ -114,28 +114,38 @@ class Rocket:
         self.thrust_pitch_local += pitch_correction
         self.thrust_yaw_local += yaw_correction
 
-        self.thrust_pitch_local = max(-max_thruster_deflection, min(max_thruster_deflection, self.thrust_pitch_local))
-        self.thrust_yaw_local = max(-max_thruster_deflection, min(max_thruster_deflection, self.thrust_yaw_local))
+        self.thrust_pitch_local = max(-self.max_thruster_deflection, min(self.max_thruster_deflection, self.thrust_pitch_local))
+        self.thrust_yaw_local = max(-self.max_thruster_deflection, min(self.max_thruster_deflection, self.thrust_yaw_local))
 
-    def update_thruster_deflection(self, target_pitch, target_yaw, max_thrust_change):
-        self.thrust_pitch_local, self.thrust_yaw_local = (
-            self.MPC_control_system.compute_control(target_pitch=target_pitch,
-                                                    current_pitch=self.pitch_angle,
-                                                    pitch_velocity=self.pitch_velocity,
-                                                    target_yaw=target_yaw,
-                                                    current_yaw=self.yaw_angle,
-                                                    yaw_velocity=self.yaw_velocity,
-                                                    max_angle=30,
-                                                    max_rate=max_thrust_change))
+    def update_thruster_deflection(self, target_pitch, target_yaw, pid_control_system: bool = True):
+        if pid_control_system:
+            self.thrust_pitch_local, self.thrust_yaw_local = (
+                self.PID_control_system.compute_control(target_pitch=target_pitch,
+                                                        current_pitch=self.pitch_angle,
+                                                        pitch_velocity=self.pitch_velocity,
+                                                        target_yaw=target_yaw,
+                                                        current_yaw=self.yaw_angle,
+                                                        yaw_velocity=self.yaw_velocity,
+                                                        max_angle=self.max_thruster_deflection,
+                                                        max_rate=self.thruster_rate_of_change))
+        else:
+            self.thrust_pitch_local, self.thrust_yaw_local = (
+                self.MPC_control_system.compute_control(target_pitch=target_pitch,
+                                                        current_pitch=self.pitch_angle,
+                                                        pitch_velocity=self.pitch_velocity,
+                                                        target_yaw=target_yaw,
+                                                        current_yaw=self.yaw_angle,
+                                                        yaw_velocity=self.yaw_velocity,
+                                                        max_angle=self.max_thruster_deflection,
+                                                        max_rate=self.thruster_rate_of_change))
 
-    def update_thruster_deflection_simple(self, target_pitch, target_yaw, max_thrust_change=1000, time_step=1):
+    def update_thruster_deflection_simple(self, target_pitch, target_yaw, time_step=1):
         """
         Adjusts thruster deflection based on the difference between the rocket's orientation and the target thrust direction.
 
         Parameters:
             target_pitch (float): Desired pitch in NED frame (degrees).
             target_yaw (float): Desired yaw in NED frame (degrees).
-            max_thrust_change (float): Maximum allowed deflection change per second (deg/s).
             time_step (float): Simulation time step (s).
         """
 
@@ -163,9 +173,9 @@ class Rocket:
                     [0, 0, 1]
                 ])
 
-        thrust_pitch_rad = math.radians(self.thrust_pitch_local) if math.radians(self.thrust_pitch_local) > 0.001 else 0
-        thrust_yaw_rad = math.radians(self.thrust_yaw_local) if math.radians(self.thrust_yaw_local) > 0.001 else 0
-        rocket_pitch_rad = math.radians(self.pitch_angle + 90) if math.radians(self.pitch_angle + 90) > 0.001 else 0
+        thrust_pitch_rad = math.radians(self.thrust_pitch_local) if abs(math.radians(self.thrust_pitch_local)) > 0.001 else 0
+        thrust_yaw_rad = math.radians(self.thrust_yaw_local) if abs(math.radians(self.thrust_yaw_local)) > 0.001 else 0
+        rocket_pitch_rad = math.radians(self.pitch_angle + 90) if abs(math.radians(self.pitch_angle + 90)) > 0.001 else 0
         rocket_yaw_rad = math.radians(self.yaw_angle) if math.radians(self.yaw_angle) > 0.001 else 0
         rocket_roll_rad = math.radians(self.roll_angle) if math.radians(self.roll_angle) > 0.001 else 0
 

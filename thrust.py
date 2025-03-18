@@ -1,6 +1,5 @@
 from rocketcea.cea_obj import CEA_Obj, add_new_fuel
 import math
-import numpy as np
 
 def calculate_mass_flow_rate(nasa_cea: bool = False, choked_flow: bool = False) -> float:
 
@@ -25,8 +24,8 @@ def calculate_mass_flow_rate(nasa_cea: bool = False, choked_flow: bool = False) 
         # ve = isp_vac * 9.81  # Convert Isp to exhaust velocity in m/s
         # molecular_weight, gamma_throat = cea.get_Throat_MolWt_gamma(Pc=pc, MR=mr)
 
-        g0 = 9.81  # Gravity acceleration in m/s²
-        a_e = 0.21  # Effective nozzle exit area in m²
+        g0 = 9.81  # Gravity acceleration in m/s^2
+        a_e = 0.21  # Effective nozzle exit area in m^2
 
         mass_flow_rate = (pc * 1e5 * a_e) / (g0 * isp_vac)
 
@@ -62,11 +61,11 @@ def calculate_mass_flow_rate(nasa_cea: bool = False, choked_flow: bool = False) 
         Computes the choked mass flow rate given:
 
         Parameters:
-        a  = Throat area (m²)
+        a  = Throat area (m^2)
         pt = Total (stagnation) pressure (Pa)
         tt = Total (stagnation) temperature (K)
         g = Specific heat ratio gamma (Cp/Cv)
-        r  = Specific gas constant (J/kg·K) (NASA seems to assume a value of ~314 in their widget)
+        r  = Specific gas constant (J/kg*K) (NASA seems to assume a value of ~314 in their widget)
         m  = Mach number at the throat (default is 1 for choked flow)
 
         Returns:
@@ -85,11 +84,11 @@ def calculate_mass_flow_rate(nasa_cea: bool = False, choked_flow: bool = False) 
         Computes the choked mass flow rate given:
 
         Parameters:
-        a  = Throat area (m²)
+        a  = Throat area (m^2)
         pt = Total chamber pressure (Pa)
         tt = Total (stagnation) temperature (K)
         g = Specific heat ratio gamma (Cp/Cv)
-        r  = Specific gas constant (J/kg·K) (NASA seems to assume a value of ~314 in their widget)
+        r  = Specific gas constant (J/kg*K) (NASA seems to assume a value of ~314 in their widget)
 
         Returns:
         mdot = Mass flow rate (kg/s)
@@ -115,7 +114,7 @@ def calculate_mass_flow_rate(nasa_cea: bool = False, choked_flow: bool = False) 
         **kwargs: Dictionary where keys are substance names and values are tuples (mass_kg, molecular_weight_kg_per_kmol).
         """
 
-        r_universal = 8314  # J/kmol·K
+        r_universal = 8314  # J/kmol*K
         total_mass = sum(mass for mass, _ in kwargs.values())
 
         r_mixture_inv = sum((mass / total_mass) / (r_universal / mw) for mass, mw in kwargs.values())
@@ -133,7 +132,7 @@ def calculate_mass_flow_rate(nasa_cea: bool = False, choked_flow: bool = False) 
             t_chamber (float): Chamber temperature in Kelvin.
 
         Returns:
-            rho_chamber (float): Density of the combustion chamber (kg/m³).
+            rho_chamber (float): Density of the combustion chamber (kg/m^3).
         """
 
         rho_chamber = p_chamber / (r_mixture * t_chamber)
@@ -173,7 +172,7 @@ def calculate_thrust(mass_flow_rate = 133.155, isp = 203, g0=9.81):
     Parameters:
         mass_flow_rate (float): Mass of fuel burned per second (kg/s).
         isp (float): Specific impulse (seconds).
-        g0 (float): Standard gravity (m/s²), default is 9.81.
+        g0 (float): Standard gravity (m/s^2), default is 9.81.
 
     Returns:
         thrust (float): Thrust force in Newtons.

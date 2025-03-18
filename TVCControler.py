@@ -3,67 +3,88 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-class TVCController:
-    def __init__(self, Kp, Ki, Kd, Kv):
+# noinspection PyPep8Naming
+class TVC_PID:
+    def __init__(self, Kp, Ki, Kd, Kv, dt=1):
         self.Kp = Kp
         self.Ki = Ki
         self.Kd = Kd
-        self.Kv = Kv  # New: velocity damping factor
-        self.prev_error = 0
-        self.integral = 0
-        self.prev_deflection = 0
+        self.Kv = Kv
+        self.dt = dt
+        self.prev_error_pitch = 0
+        self.prev_error_yaw = 0
+        self.integral_pitch = 0
+        self.integral_yaw = 0
+        self.prev_deflection_pitch = 0
+        self.prev_deflection_yaw = 0
 
-    def compute_control(self, target_angle, current_angle, angular_velocity, max_angle, max_rate, timestep):
-        error = target_angle - current_angle
-        self.integral += error * timestep
-        derivative = (error - self.prev_error) / timestep
-        self.prev_error = error
+    def compute_control(self, target_pitch, current_pitch, pitch_velocity,
+                        target_yaw, current_yaw, yaw_velocity, max_rate, max_angle):
+        """Computes thruster deflection for pitch and yaw using PID"""
 
-        raw_deflection = (self.Kp * error +
-                          self.Ki * self.integral +
-                          self.Kd * derivative -
-                          self.Kv * angular_velocity)  # Velocity damping
+        error_pitch = target_pitch - current_pitch
+        self.integral_pitch += error_pitch * self.dt
+        derivative_pitch = (error_pitch - self.prev_error_pitch) / self.dt
+        self.prev_error_pitch = error_pitch
 
-        raw_deflection = np.clip(raw_deflection, -max_angle, max_angle)
+        raw_deflection_pitch = (self.Kp * error_pitch +
+                                self.Ki * self.integral_pitch +
+                                self.Kd * derivative_pitch -
+                                self.Kv * pitch_velocity)
 
-        max_step = max_rate * timestep
-        deflection = np.clip(raw_deflection, self.prev_deflection - max_step, self.prev_deflection + max_step)
+        error_yaw = target_yaw - current_yaw
+        self.integral_yaw += error_yaw * self.dt
+        derivative_yaw = (error_yaw - self.prev_error_yaw) / self.dt
+        self.prev_error_yaw = error_yaw
 
-        self.prev_deflection = deflection
-        return deflection
+        raw_deflection_yaw = (self.Kp * error_yaw +
+                              self.Ki * self.integral_yaw +
+                              self.Kd * derivative_yaw -
+                              self.Kv * yaw_velocity)
+
+        raw_deflection_pitch = np.clip(raw_deflection_pitch, -max_angle, max_angle)
+        raw_deflection_yaw = np.clip(raw_deflection_yaw, -max_angle, max_angle)
+
+        max_step = max_rate * self.dt
+        deflection_pitch = np.clip(raw_deflection_pitch,
+                                   self.prev_deflection_pitch - max_step,
+                                   self.prev_deflection_pitch + max_step)
+        deflection_yaw = np.clip(raw_deflection_yaw,
+                                 self.prev_deflection_yaw - max_step,
+                                 self.prev_deflection_yaw + max_step)
+
+        self.prev_deflection_pitch = deflection_pitch
+        self.prev_deflection_yaw = deflection_yaw
+
+        return deflection_pitch, deflection_yaw
 
 
 class TVC_MPC:
     def __init__(self, dt=0.1, horizon=10):
         self.dt = dt
-        self.horizon = horizon  # Prediction steps
+        self.horizon = horizon
 
     def compute_control(self, target_pitch, current_pitch, pitch_velocity,
-                               target_yaw, current_yaw, yaw_velocity, max_angle, max_rate):
-        """Solves MPC for both pitch and yaw simultaneously."""
-        N = self.horizon  # Prediction horizon
+                        target_yaw, current_yaw, yaw_velocity, max_angle, max_rate):
+        """Solves MPC for pitch and yaw."""
+        N = self.horizon
 
-        # Decision variables: thrust deflection angles over the horizon
         u_pitch = cp.Variable(N)
         u_yaw = cp.Variable(N)
 
-        # State variables (pitch/yaw angles and velocities)
-        theta_pitch = cp.Variable(N+1)  # Predicted pitch angles
-        omega_pitch = cp.Variable(N+1)  # Predicted pitch velocities
-        theta_yaw = cp.Variable(N+1)    # Predicted yaw angles
-        omega_yaw = cp.Variable(N+1)    # Predicted yaw velocities
+        theta_pitch = cp.Variable(N+1)
+        omega_pitch = cp.Variable(N+1)
+        theta_yaw = cp.Variable(N+1)
+        omega_yaw = cp.Variable(N+1)
 
-        # Initial conditions
         theta_pitch_0 = current_pitch
         omega_pitch_0 = pitch_velocity
         theta_yaw_0 = current_yaw
         omega_yaw_0 = yaw_velocity
 
-        # Target angles over the horizon
         theta_pitch_target = np.full(N+1, target_pitch)
         theta_yaw_target = np.full(N+1, target_yaw)
 
-        # Cost function: Minimize deviation + smooth control
         cost = (
             cp.sum_squares(theta_pitch - theta_pitch_target) +
             cp.sum_squares(theta_yaw - theta_yaw_target) +
@@ -73,35 +94,29 @@ class TVC_MPC:
             0.5 * cp.sum_squares(omega_yaw)
         )
 
-        # Constraints
         constraints = [
-            theta_pitch[0] == theta_pitch_0,  # Initial pitch
-            omega_pitch[0] == omega_pitch_0,  # Initial pitch velocity
-            theta_yaw[0] == theta_yaw_0,      # Initial yaw
-            omega_yaw[0] == omega_yaw_0       # Initial yaw velocity
+            theta_pitch[0] == theta_pitch_0,
+            omega_pitch[0] == omega_pitch_0,
+            theta_yaw[0] == theta_yaw_0,
+            omega_yaw[0] == omega_yaw_0
         ]
 
         for k in range(N):
-            # Update pitch dynamics
             constraints.append(theta_pitch[k+1] == theta_pitch[k] + omega_pitch[k] * self.dt)
             constraints.append(omega_pitch[k+1] == omega_pitch[k] + u_pitch[k] * self.dt)
 
-            # Update yaw dynamics
             constraints.append(theta_yaw[k+1] == theta_yaw[k] + omega_yaw[k] * self.dt)
             constraints.append(omega_yaw[k+1] == omega_yaw[k] + u_yaw[k] * self.dt)
 
-            # Control constraints
             constraints.append(u_pitch[k] >= -max_angle)
             constraints.append(u_pitch[k] <= max_angle)
             constraints.append(u_yaw[k] >= -max_angle)
             constraints.append(u_yaw[k] <= max_angle)
 
-            # Rate limit constraints (∆u ≤ max_rate * dt)
             if k > 0:
                 constraints.append(cp.abs(u_pitch[k] - u_pitch[k-1]) <= max_rate * self.dt)
                 constraints.append(cp.abs(u_yaw[k] - u_yaw[k-1]) <= max_rate * self.dt)
 
-        # Solve optimization problem
         problem = cp.Problem(cp.Minimize(cost), constraints)
         problem.solve()
 
@@ -109,7 +124,7 @@ class TVC_MPC:
             print("MPC did not find an optimal solution.")
             return 0, 0  # Fail-safe return
 
-        return u_pitch.value[0], u_yaw.value[0]  # Apply first control actions
+        return u_pitch.value[0], u_yaw.value[0]
 
 # === TESTING ===
 if __name__ == "__main__":
@@ -132,11 +147,13 @@ if __name__ == "__main__":
     current_pitch_velocity = 0
     current_yaw = 0
     current_yaw_velocity = 0
+    max_deflection_angle = 30
+    max_deflection_rate = 20
 
     for t in range(steps):
         control_pitch, control_yaw = mpc.compute_control(
             target_pitch, current_pitch, current_pitch_velocity,
-            target_yaw, current_yaw, current_yaw_velocity
+            target_yaw, current_yaw, current_yaw_velocity, max_deflection_angle, max_deflection_rate
         )
 
         # Apply controls (simulate motion)
