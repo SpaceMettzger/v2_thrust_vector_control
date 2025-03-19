@@ -170,7 +170,7 @@ def calculate_drag(rocket):
 
 def get_air_density(altitude):
     """
-    Returns air density (kg/m³) based on altitude using an approximate exponential model.
+    Returns air density (kg/m^3) based on altitude using an approximate exponential model.
     """
     if altitude < 11000:
         return 1.225 * math.exp(-altitude / 8000)

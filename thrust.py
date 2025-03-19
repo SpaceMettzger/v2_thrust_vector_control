@@ -157,7 +157,7 @@ def calculate_mass_flow_rate(nasa_cea: bool = False, choked_flow: bool = False) 
     chamber_temperature = 2670 + 273.15
     chamber_pressure = 1.5 * 1e6
     # gamma = calculate_gamma_mixture()
-    gamma = 1.11  # Specific heat ratio
+    gamma = 1.3  # Specific heat ratio
 
     if choked_flow:
         return choked_mass_flow(a_throat, chamber_pressure, chamber_temperature, gamma, r_specific, m=1)

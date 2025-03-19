@@ -41,7 +41,7 @@ class Rocket:
         self.thrust_pitch_local = 0
         self.thrust_yaw_local = 0
         self.thrust_roll_local = 0
-        self.PID_control_system = TVC_PID(Kp=2, Ki=0.2, Kd=2, Kv=1)
+        self.PID_control_system = TVC_PID(Kp=2, Ki=0.1, Kd=2, Kv=1.2)
         self.MPC_control_system = TVC_MPC(dt=0.1, horizon=10)
 
         self.records = {

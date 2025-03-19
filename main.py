@@ -69,6 +69,7 @@ def run_simulation(thrust_vector_waypoints, vector_control: bool = True, pid_thr
     range_distance = np.linalg.norm(final_position - initial_position)
 
     print("Rocket altitude:", max(z_positions))
+    print("Max Thrust: ", max(rocket.records['thrust_values']))
     print("Rocket range:", range_distance)
 
     return rocket, x_positions, y_positions, z_positions, time_values
@@ -131,22 +132,29 @@ def plot(rocket, x_positions, y_positions, z_positions, time_values, show_orient
 
 if __name__ == "__main__":
     thrust_vector_waypoints_yaw = {0: {"yaw": 0, "pitch": 0},
-                                   10: {"yaw": 45, "pitch": 20},
-                                   20: {"yaw": 45, "pitch": 20},
-                                   30: {"yaw": 45, "pitch": 20},
-                                   40: {"yaw": 45, "pitch": 20}}
+                                   10: {"yaw": 0, "pitch": 0},
+                                   20: {"yaw": 45, "pitch": 65},
+                                   30: {"yaw": 45, "pitch": 65},
+                                   40: {"yaw": 45, "pitch": 65},
+                                   50: {"yaw": 45, "pitch": 65}}
 
     thrust_vector_waypoints_pitch = {0: {"yaw": 0, "pitch": 0},
                                      10: {"yaw": 15, "pitch": -45},
                                      20: {"yaw": 15, "pitch": -45},
-                                     30: {"yaw": 90, "pitch": -45},
-                                     40: {"yaw": 90, "pitch": -45}}
+                                     30: {"yaw": 90, "pitch": -90},
+                                     40: {"yaw": 120, "pitch": -90}}
+
 
     rocket_pitch, x_positions_pitch, y_positions_pitch, z_positions_pitch, time_values_pitch = run_simulation(
         thrust_vector_waypoints_yaw, vector_control=True)
+    rocket_pitch_2, x_positions_pitch_2, y_positions_pitch_2, z_positions_pitch_2, time_values_pitch_2 = run_simulation(
+        thrust_vector_waypoints_yaw, vector_control=True, pid_thruster_control=False)
     rocket_yaw, x_positions_yaw, y_positions_yaw, z_positions_yaw, time_values_yaw = run_simulation(
-        thrust_vector_waypoints_pitch, vector_control=True)
+        thrust_vector_waypoints_pitch, vector_control=True, pid_thruster_control=True)
+    rocket_yaw_2, x_positions_yaw_2, y_positions_yaw_2, z_positions_yaw_2, time_values_yaw_2 = run_simulation(
+        thrust_vector_waypoints_pitch, vector_control=True, pid_thruster_control=False)
     plot(rocket_pitch, x_positions_pitch, y_positions_pitch, z_positions_pitch, time_values_pitch, show_orientation=True)
+    plot(rocket_pitch_2, x_positions_pitch_2, y_positions_pitch_2, z_positions_pitch_2, time_values_pitch_2,
+         show_orientation=True)
     plot(rocket_yaw, x_positions_yaw, y_positions_yaw, z_positions_yaw, time_values_yaw, show_orientation=True)
-
-    # Todo - Check damping_factor in update_angular_motion
+    plot(rocket_yaw_2, x_positions_yaw_2, y_positions_yaw_2, z_positions_yaw_2, time_values_yaw_2, show_orientation=True)

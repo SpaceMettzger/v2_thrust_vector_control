@@ -122,7 +122,7 @@ class TVC_MPC:
 
         if problem.status not in ["optimal", "optimal_inaccurate"]:
             print("MPC did not find an optimal solution.")
-            return 0, 0  # Fail-safe return
+            return 0, 0
 
         return u_pitch.value[0], u_yaw.value[0]
 
