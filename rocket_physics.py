@@ -48,9 +48,9 @@ def update_angular_motion(rocket: Rocket, time_step=1, damping_factor=0.2):
     rocket.yaw_velocity = (rocket.yaw_velocity + rocket.yaw_acceleration * time_step) * (1 - damping_factor)
     rocket.roll_velocity = (rocket.roll_velocity + rocket.roll_acceleration * time_step) * (1 - damping_factor)
 
-    rocket.pitch_angle += rocket.pitch_velocity * time_step
-    rocket.yaw_angle += rocket.yaw_velocity * time_step
-    rocket.roll_angle += rocket.roll_velocity * time_step
+    rocket.pitch_angle += rocket.pitch_velocity
+    rocket.yaw_angle += rocket.yaw_velocity
+    rocket.roll_angle += rocket.roll_velocity
 
 
 def update_velocity(rocket: Rocket, acceleration_x, acceleration_y, acceleration_z, time_step=1):

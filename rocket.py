@@ -93,27 +93,6 @@ class Rocket:
             time_step (float): Simulation time step (s).
         """
 
-        max_deflection_change = self.thruster_rate_of_change * time_step
-
-        pitch_error = target_pitch - self.pitch_angle
-        yaw_error = target_yaw - self.yaw_angle
-
-        pitch_correction = max(-max_deflection_change, min(max_deflection_change, pitch_error))
-        yaw_correction = max(-max_deflection_change, min(max_deflection_change, yaw_error))
-
-        damping_factor = 0.3
-        pitch_correction -= damping_factor * self.pitch_velocity
-        yaw_correction -= damping_factor * self.yaw_velocity
-
-        if abs(pitch_error) < 0.2 and abs(self.pitch_velocity) > abs(pitch_error) / time_step:
-            pitch_correction = 0
-
-        if abs(yaw_error) < 1.0 and abs(self.yaw_velocity) > abs(yaw_error) / time_step:
-            yaw_correction = 0
-
-        self.thrust_pitch_local += pitch_correction
-        self.thrust_yaw_local += yaw_correction
-
         self.thrust_pitch_local = max(-self.max_thruster_deflection, min(self.max_thruster_deflection, self.thrust_pitch_local))
         self.thrust_yaw_local = max(-self.max_thruster_deflection, min(self.max_thruster_deflection, self.thrust_yaw_local))
 
@@ -149,8 +128,8 @@ class Rocket:
             time_step (float): Simulation time step (s).
         """
 
-        self.thrust_pitch_local =  target_pitch
-        self.thrust_yaw_local = target_yaw
+        self.thrust_yaw_local = max(-self.max_thruster_deflection, min(self.max_thruster_deflection, target_yaw))
+        self.thrust_pitch_local = max(-self.max_thruster_deflection, min(self.max_thruster_deflection, target_pitch))
 
     def calculate_thruster_deflection_transformation(self):
         def define_rotation_matrices(axis: str, angle_rad):

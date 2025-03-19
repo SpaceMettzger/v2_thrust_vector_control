@@ -5,7 +5,6 @@ from OpenGL.GLU import *
 import numpy as np
 import math
 import rocket_physics as rp
-import thrust
 from rocket import Rocket
 
 
@@ -36,22 +35,14 @@ trajectory = []
 
 stars = [(np.random.uniform(-500, 500), np.random.uniform(100, 500), np.random.uniform(-500, 500)) for _ in range(200)]
 
-
-from OpenGL.GLU import *
-
-from OpenGL.GLU import *
-
 def draw_rocket():
     """ Draws the rocket as a cylinder (body) + cone (nose) with correct orientation. """
     glPushMatrix()
 
-    # Move rocket to its current position
     glTranslatef(rocket.x_position, rocket.y_position, rocket.z_position)
-    # Apply rotations in correct order: Yaw (Y), Pitch (X), Roll (Z)
-    glRotatef(rocket.thrust_yaw, 0, 0, 1)  # Rotate around world Y-axis (Yaw)
-    glRotatef(rocket.thrust_pitch, 0, 1, 0)  # Rotate around local X-axis (Pitch)
+    glRotatef(rocket.yaw_angle, 1, 0, 0)  # Rotate around world Y-axis (Yaw)
+    glRotatef(-rocket.pitch_angle - 90, 0, 1, 0)  # Rotate around local X-axis (Pitch)
 
-    # Create a quadric object for smooth rendering
     quadric = gluNewQuadric()
     glColor3f(0, 0, 0)  # Black body
 
@@ -60,6 +51,18 @@ def draw_rocket():
     gluCylinder(quadric, 2, 2, 10, 20, 20) # (quadric, baseRadius, topRadius, height, slices, stacks)
     glPopMatrix()
 
+    glBegin(GL_LINES)
+    # **Red Pitch Axis Line (Forward direction)**
+    glColor3f(1, 0, 0)  # Red
+    glVertex3f(0, 0, 0)  # Bottom of rocket
+    glVertex3f(0, 5, 0)  # Extends downward
+
+    # **Green Thrust Axis Line (Thrust direction)**
+    glColor3f(0, 1, 0)  # Green
+    glVertex3f(0, 0, 0)  # Bottom of rocket
+    glVertex3f(5, 0, 0)  # Extends downward
+    glEnd()
+
     # **2️⃣ Draw Rocket Nose (Cone)**
     glPushMatrix()
     glTranslatef(0, 0, 10.0)  # Move cone to top of the cylinder
@@ -67,11 +70,20 @@ def draw_rocket():
     gluCylinder(quadric, 2, 0, 5, 20, 20)  # Cone shape
     glPopMatrix()
 
-    glPopMatrix()  # Restore matrix
+    # Rocket_thruster
+    glPushMatrix()
+    glRotatef(rocket.thrust_yaw_local, 0, 0, 1)  # Rotate around world Y-axis (Yaw)
+    glRotatef(rocket.thrust_pitch_local, 0, 1, 0)  # Rotate around local X-axis (Pitch)
+    glPushMatrix()
+    glTranslatef(0, 0, -5)  # Move cone to top of the cylinder
+    glColor3f(0.5, 0.7, 1)  # White nose
+    gluCylinder(quadric, 2, 1, 5, 10, 10)  # Cone shape
+    glPopMatrix()
+    glPopMatrix()
 
+    glPopMatrix()
 
-
-
+      # Restore matrix
 
     # Store trajectory points
     trajectory.append((rocket.x_position, rocket.y_position, rocket.z_position))
@@ -91,6 +103,9 @@ def draw_rocket():
 
 def draw_grid():
     """ Draws a large ground grid for reference. """
+    glPushMatrix()
+    glRotatef(90, 1, 0, 0)  # Rotate around local X-axis (Pitch)
+
     glColor3f(0.3, 0.3, 0.3)  # Light grey
     glBegin(GL_LINES)
 
@@ -107,6 +122,7 @@ def draw_grid():
         glVertex3f(grid_size, -1, i)
 
     glEnd()
+    glPopMatrix()
 
 def draw_stars():
     """ Draws stars in the background for reference. """
@@ -166,27 +182,22 @@ def display():
     camera_height = 15
 
     angle_rad = math.radians(rocket.yaw_angle)
-    eye_x = rocket.x_position  - camera_distance * math.sin(angle_rad)
-    eye_y = rocket.y_position  + camera_height  # Keep camera above the rocket
-    eye_z = rocket.z_position  - camera_distance * math.cos(angle_rad)
+    eye_x = rocket.x_position  - camera_distance # * math.sin(angle_rad)
+    eye_y = rocket.y_position  - camera_height  # Keep camera above the rocket
+    eye_z = rocket.z_position  - camera_distance # * math.cos(angle_rad)
 
     gluLookAt(eye_x, eye_y, eye_z,
               rocket.x_position, rocket.y_position, rocket.z_position,
-              0, 1, 0)
-
-    # 🛠 Draw Grid First
+              0, 0, 1)
 
     draw_stars()
-    draw_grid()  # Restore normal rendering
+    draw_grid()
     draw_rocket()
     glPopMatrix()
     pygame.display.flip()
 
-
-
-# **Real-Time Simulation Loop**
 while running:
-    if rocket.y_position < 0:
+    if rocket.z_position < 0:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -194,51 +205,56 @@ while running:
         pygame.time.wait(100)
         continue
 
-    dt = clock.tick(60) / 1000.0  # Delta time for real-time step
+    dt = clock.tick(60) / 1000.0
 
-    # Handle Events (Quit & Keyboard Input)
     for event in pygame.event.get():
         if event.type == QUIT:
             running = False
 
-    # **Read Key Inputs for Thrust Vectoring**
     keys = pygame.key.get_pressed()
-    if keys[K_UP]:  # Increase pitch (tilt down)
-        rocket.update_thruster_deflection(rocket.thrust_pitch - max_gimbal_rate, rocket.thrust_yaw, max_gimbal_rate, dt)
-    if keys[K_DOWN]:  # Decrease pitch (tilt up)
-        rocket.update_thruster_deflection(rocket.thrust_pitch + max_gimbal_rate, rocket.thrust_yaw, max_gimbal_rate, dt)
-    if keys[K_LEFT]:  # Yaw left
-        rocket.update_thruster_deflection(rocket.thrust_pitch, rocket.thrust_yaw - max_gimbal_rate, max_gimbal_rate, dt)
-    if keys[K_RIGHT]:  # Yaw right
-        rocket.update_thruster_deflection(rocket.thrust_pitch, rocket.thrust_yaw + max_gimbal_rate, max_gimbal_rate, dt)
+    return_rate = max_gimbal_rate * dt * 0.5
+    if keys[K_LEFT]:
+        rocket.update_thruster_deflection_simple(rocket.thrust_pitch_local - (max_gimbal_rate * dt),
+                                                 rocket.thrust_yaw_local, dt)
+    elif keys[K_RIGHT]:
+        rocket.update_thruster_deflection_simple(rocket.thrust_pitch_local + (max_gimbal_rate * dt),
+                                                 rocket.thrust_yaw_local, dt)
+    elif keys[K_DOWN]:
+        rocket.update_thruster_deflection_simple(rocket.thrust_pitch_local,
+                                                 rocket.thrust_yaw_local - (max_gimbal_rate * dt), dt)
+    elif keys[K_UP]:
+        rocket.update_thruster_deflection_simple(rocket.thrust_pitch_local,
+                                                 rocket.thrust_yaw_local + (max_gimbal_rate * dt), dt)
+    else:
+        if rocket.thrust_pitch_local > 0:
+            rocket.thrust_pitch_local = max(0, rocket.thrust_pitch_local - return_rate)
+        elif rocket.thrust_pitch_local < 0:
+            rocket.thrust_pitch_local = min(0, rocket.thrust_pitch_local + return_rate)
 
-    # **Calculate Rocket Physics**
+        if rocket.thrust_yaw_local > 0:
+            rocket.thrust_yaw_local = max(0, rocket.thrust_yaw_local - return_rate)
+        elif rocket.thrust_yaw_local < 0:
+            rocket.thrust_yaw_local = min(0, rocket.thrust_yaw_local + return_rate)
+
+    rp.update_flight_time(rocket, dt)
+
     thrust_force = rocket.get_thrust()
 
-    pitch_torque, yaw_torque = rocket.get_torque()
-    roll_torque = 0  # No roll control for now
+    pitch_torque, yaw_torque, _ = rp.get_torque(rocket)
+    roll_torque = 0
 
-    # Compute angular acceleration (rotation effect)
-    pitch_accel, yaw_accel, roll_accel = rp.calculate_angular_acceleration(
-        rocket.current_mass, rocket.diameter / 2, rocket.length,
-        pitch_torque, yaw_torque, roll_torque)
+    rp.calculate_angular_acceleration(rocket, pitch_torque, yaw_torque, roll_torque)
 
-    rocket.update_angular_motion(pitch_accel, yaw_accel, roll_accel, dt)
+    rp.update_angular_motion(rocket, dt)
 
+    thrust_x, thrust_y, thrust_z = rocket.calculate_thruster_deflection_transformation()
 
-    # Compute thrust components in x, y, z
-    thrust_x, thrust_y, thrust_z = thrust.calculate_thrust_vector_components(
-        thrust_force, rocket.pitch_angle, rocket.yaw_angle
-    )
-
-    # Compute acceleration (F = ma)
     acceleration_x, acceleration_y, acceleration_z = rp.calculate_linear_acceleration(
         thrust_x, thrust_y, thrust_z, rocket)
 
-    rocket.update_velocity(acceleration_x, acceleration_y, acceleration_z, dt)
-    rocket.update_position(dt)
+    rp.update_velocity(rocket, acceleration_x, acceleration_y, acceleration_z, dt)
+    rp.update_position(rocket, dt)
 
-    # **Render Scene with Dynamic Camera**
     display()
 
 pygame.quit()
