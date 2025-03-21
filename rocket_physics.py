@@ -67,7 +67,7 @@ def update_velocity(rocket: Rocket, acceleration_x, acceleration_y, acceleration
     rocket.x_velocity += acceleration_x * time_step
     rocket.y_velocity += acceleration_y * time_step
     rocket.z_velocity += acceleration_z * time_step
-
+    rocket.total_lateral_velocity = math.sqrt(rocket.x_velocity**2 + rocket.y_velocity**2 + rocket.z_velocity**2)
 
 def update_position(rocket: Rocket, time_step=1):
     """

@@ -26,6 +26,7 @@ class Rocket:
         self.x_velocity = 0
         self.y_velocity = 0
         self.z_velocity = 0
+        self.total_lateral_velocity = 0
 
         self.pitch_angle = -90
         self.yaw_angle = 0
@@ -41,6 +42,7 @@ class Rocket:
         self.thrust_pitch_local = 0
         self.thrust_yaw_local = 0
         self.thrust_roll_local = 0
+        self.global_thrust_vector = [0, 0, 0]
         self.PID_control_system = TVC_PID(Kp=2, Ki=0.1, Kd=2, Kv=1.2)
         self.MPC_control_system = TVC_MPC(dt=0.1, horizon=10)
 
@@ -170,9 +172,9 @@ class Rocket:
         r_pitch = define_rotation_matrices("y", -rocket_pitch_rad)
         r_roll = define_rotation_matrices("z", rocket_roll_rad)
 
-        global_thrust_vector = r_roll @ r_pitch @ r_yaw @ thrust_vector
+        self.global_thrust_vector = r_roll @ r_pitch @ r_yaw @ thrust_vector
 
-        return global_thrust_vector[0], global_thrust_vector[1], global_thrust_vector[2]
+        return self.global_thrust_vector[0], self.global_thrust_vector[1], self.global_thrust_vector[2]
 
 
     def record_rocket_params(self):
@@ -189,3 +191,4 @@ class Rocket:
         self.records["thrust_pitch_angles"].append(self.thrust_pitch_local)
         self.records["thrust_yaw_angles"].append(self.thrust_yaw_local)
         self.records["lateral_velocities"].append(np.linalg.norm(np.array([self.x_velocity, self.y_velocity, self.z_velocity])))
+        self.records["lateral_positions"].append([self.x_position, self.y_position, self.z_position])
