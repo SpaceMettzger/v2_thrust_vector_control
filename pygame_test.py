@@ -87,7 +87,7 @@ def draw_rocket():
     # Rocket Nose
     glPushMatrix()
     glTranslatef(0, 0, 10.0)  # Move cone to top of the cylinder
-    glColor3f(1, 0, 0)  # White nose
+    glColor3f(1, 0, 0)  # Red nose
     gluCylinder(quadric, 2, 0, 5, 20, 20)  # Cone shape
     glPopMatrix()
 
@@ -96,19 +96,15 @@ def draw_rocket():
     glRotatef(- rocket.thrust_yaw_local, 1, 0, 0)  # Rotate around world Y-axis (Yaw)
     glRotatef(rocket.thrust_pitch_local, 0, 1, 0)  # Rotate around local X-axis (Pitch)
     glPushMatrix()
-    glTranslatef(0, 0, -5)  # Move cone to top of the cylinder
-    glColor3f(0.5, 0.7, 1)  # White nose
+    glTranslatef(0, 0, -5)  # Move cone to bottom of the cylinder
+    glColor3f(0.5, 0.7, 1)  # Blue cone
     gluCylinder(quadric, 2, 1, 5, 10, 10)  # Cone shape
     glPopMatrix()
     glPopMatrix()
 
     glPopMatrix()
 
-    # Restore matrix
-
-    # Store trajectory points
     trajectory = rocket.records["lateral_positions"]
-
     # Limit the number of points in the trajectory for performance reasons
     if len(trajectory) > 10000:
         trajectory.pop(0)
@@ -198,11 +194,11 @@ def draw_text(font, text, x, y, align="left", color=(255, 255, 255)):
     text_width = text_surface.get_width()
 
     if align == "right":
-        x -= text_width  # Shift x to the left by the text width
+        x -= text_width
     elif align == "center":
-        x -= text_width // 2  # Center align
+        x -= text_width // 2
 
-    glWindowPos2d(x, y)  # Position in pixels from bottom-left
+    glWindowPos2d(x, y)
     glDrawPixels(text_surface.get_width(), text_surface.get_height(), GL_RGBA, GL_UNSIGNED_BYTE, text_data)
 
 
@@ -228,7 +224,7 @@ def display(font, rocket):
 
     center_of_mass = rocket.length - rp.calculate_center_of_mass(rocket)
 
-    height_factor = min(250, abs(rocket.z_position) / 5)  # Increase distance at high speeds
+    height_factor = min(250, abs(rocket.z_position) / 5)  # Increase distance at high altitude
 
     camera_distance = 5 + height_factor
     camera_height = 15 + height_factor
@@ -256,16 +252,14 @@ def display(font, rocket):
 
 
 if __name__ == "__main__":
-    # Pygame Initialization
     pygame.init()
     screen_width, screen_height = 800, 600
     screen = pygame.display.set_mode((screen_width, screen_height), DOUBLEBUF | OPENGL)
     pygame.display.set_caption("Real-Time 3D Rocket Simulation")
 
-    # OpenGL Setup
     glEnable(GL_DEPTH_TEST)
     gluPerspective(60, screen_width / screen_height, 0.1, 1000.0)  # Increase FOV & max distance
-    glTranslatef(0, -5, -100)  # Move the camera further back
+    glTranslatef(0, -5, -100)
 
     glEnable(GL_BLEND)
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
@@ -274,18 +268,14 @@ if __name__ == "__main__":
 
     # Initialize Rocket
     rocket = Rocket()
-    launched = False
+    max_gimbal_rate = 20  # Degrees per second (limits pitch/yaw changes)
+
     camera_angle_pitch = 0
     camera_angle_yaw = 0
     mouse_x, mouse_y = 0, 0
-
-    # Control Parameters
-    max_gimbal_rate = 20  # Degrees per second (limits pitch/yaw changes)
+    launched = False
     running = True
     clock = pygame.time.Clock()
-
-    # Function to Render 3D Rocket Model
-    # Store past positions for trajectory visualization
     time_values = []
     t = 0
 
