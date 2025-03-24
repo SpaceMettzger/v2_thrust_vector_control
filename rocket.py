@@ -4,7 +4,7 @@ import thrust
 import math
 
 class Rocket:
-    def __init__(self):
+    def __init__(self, dt=1):
         self.mass_gross = 12500 # kg
         self.mass_fuel = 8720 # kg
         self.dry_mass = self.mass_gross - self.mass_fuel
@@ -43,7 +43,7 @@ class Rocket:
         self.thrust_yaw_local = 0
         self.thrust_roll_local = 0
         self.global_thrust_vector = [0, 0, 0]
-        self.PID_control_system = TVC_PID(Kp=2, Ki=0.1, Kd=2, Kv=1.2)
+        self.PID_control_system = TVC_PID(Kp=2, Ki=0.1, Kd=2, Kv=1.2, dt=dt)
         self.MPC_control_system = TVC_MPC(dt=0.1, horizon=10)
 
         self.records = {

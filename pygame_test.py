@@ -39,7 +39,7 @@ def draw_reference_rings(center, radius=15, segments=100):
     glEnd()
 
 
-def draw_rocket():
+def draw_rocket(rocket):
     """ Draws the rocket as a cylinder (body) + cone (nose) with correct orientation. """
     glPushMatrix()
     draw_reference_rings((rocket.x_position, rocket.y_position, rocket.z_position))
@@ -61,24 +61,27 @@ def draw_rocket():
     glEnd()
 
     glTranslatef(rocket.x_position, rocket.y_position, rocket.z_position)
+    glRotatef(- rocket.pitch_angle - 90, 0, 1, 0)
+    glRotatef(rocket.yaw_angle, 1, 0, 0)
+    """
     glRotatef(rocket.yaw_angle, 1, 0, 0)  # Rotate around world Y-axis (Yaw)
     glRotatef(-rocket.pitch_angle - 90, 0, 1, 0)  # Rotate around local X-axis (Pitch)
-
+    """
     quadric = gluNewQuadric()
     glColor3f(0, 0, 0)  # Black body
 
-    # **1️⃣ Draw Rocket Body (Cylinder)**
+    # Rocket Body (Cylinder)
     glPushMatrix()
     gluCylinder(quadric, 2, 2, 10, 20, 20)  # (quadric, baseRadius, topRadius, height, slices, stacks)
     glPopMatrix()
 
     glBegin(GL_LINES)
-    # **Red Pitch Axis Line (Forward direction)**
+    # Red Pitch Axis Line
     glColor3f(1, 0, 0)  # Red
     glVertex3f(0, -5, 0)  # Bottom of rocket
     glVertex3f(0, 5, 0)  # Extends downward
 
-    # **Green Thrust Axis Line (Thrust direction)**
+    # Green Thrust Axis Line
     glColor3f(0, 1, 0)  # Green
     glVertex3f(-5, 0, 0)  # Bottom of rocket
     glVertex3f(5, 0, 0)  # Extends downward
@@ -93,7 +96,7 @@ def draw_rocket():
 
     # Rocket_thruster
     glPushMatrix()
-    glRotatef(- rocket.thrust_yaw_local, 1, 0, 0)  # Rotate around world Y-axis (Yaw)
+    glRotatef(rocket.thrust_yaw_local, -1, 0, 0)  # Rotate around world Y-axis (Yaw)
     glRotatef(rocket.thrust_pitch_local, 0, 1, 0)  # Rotate around local X-axis (Pitch)
     glPushMatrix()
     glTranslatef(0, 0, -5)  # Move cone to bottom of the cylinder
@@ -142,7 +145,7 @@ def draw_grid():
     glPopMatrix()
 
 
-def draw_stars():
+def draw_stars(stars):
     """ Draws stars in the background for reference. """
     glPointSize(2)
     glBegin(GL_POINTS)
@@ -202,20 +205,20 @@ def draw_text(font, text, x, y, align="left", color=(255, 255, 255)):
     glDrawPixels(text_surface.get_width(), text_surface.get_height(), GL_RGBA, GL_UNSIGNED_BYTE, text_data)
 
 
-def draw_controls(font):
+def draw_controls(font, screen_height):
     draw_text(font, "Mouse: Move camera", 10, screen_height - 20)
     draw_text(font, "W/S/A/D: Thrust vectoring", 10, screen_height - 40)
     draw_text(font, "Space: Launch", 10, screen_height - 60)
 
 
-def draw_stats(font, rocket):
+def draw_stats(font, screen_width, screen_height, rocket):
     draw_text(font, f"Speed: {int(rocket.total_lateral_velocity)} m/s", screen_width - 10, screen_height - 20, align="right")
     draw_text(font, f"Altitude {int(rocket.z_position)} m", screen_width - 10, screen_height - 40, align="right")
     draw_text(font, f"Remaining Fuel {int(rocket.current_fuel)} kg", screen_width - 10, screen_height - 60, align="right")
     draw_text(font, f"Thrust {int(np.linalg.norm(rocket.global_thrust_vector) )} N", screen_width - 10, screen_height - 80, align="right")
 
 
-def display(font, rocket):
+def display(font, screen_width, screen_height, rocket, camera_angle_yaw, camera_angle_pitch, stars):
     """ Updates the camera to follow the rocket. """
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     draw_background()
@@ -226,8 +229,8 @@ def display(font, rocket):
 
     height_factor = min(250, abs(rocket.z_position) / 5)  # Increase distance at high altitude
 
-    camera_distance = 5 + height_factor
-    camera_height = 15 + height_factor
+    camera_distance = 5 # + height_factor
+    camera_height = 15 # + height_factor
 
     yaw_camera_angle_rad = np.deg2rad(camera_angle_yaw)
     pitch_camera_angle_rad = np.deg2rad(camera_angle_pitch)
@@ -241,17 +244,25 @@ def display(font, rocket):
               rocket.x_position, rocket.y_position, rocket.z_position + center_of_mass,
               0, 0, 1)
 
-    draw_stars()
+    draw_stars(stars)
     draw_grid()
-    draw_rocket()
-    draw_controls(font)
-    draw_stats(font, rocket)
+    draw_rocket(rocket)
+    draw_controls(font, screen_height)
+    draw_stats(font, screen_width, screen_height, rocket)
 
     glPopMatrix()
     pygame.display.flip()
 
+def get_current_waypoint(t, waypoints):
+    # Find the last keyframe ≤ current time
+    angles = sorted(waypoints.keys())
+    for i in reversed(angles):
+        if t >= i:
+            return waypoints[i]['yaw'], waypoints[i]['pitch']
+    return waypoints[angles[0]]['yaw'], waypoints[angles[0]]['pitch']   # Default to the first key if none matched
 
-if __name__ == "__main__":
+
+def run_pygame_simulation(angles: dict = None, pid_thruster_control=True):
     pygame.init()
     screen_width, screen_height = 800, 600
     screen = pygame.display.set_mode((screen_width, screen_height), DOUBLEBUF | OPENGL)
@@ -267,7 +278,8 @@ if __name__ == "__main__":
     font = pygame.font.SysFont("Arial", 18)
 
     # Initialize Rocket
-    rocket = Rocket()
+    clock = pygame.time.Clock()
+    rocket = Rocket(dt=clock.tick(60) / 1000.0)
     max_gimbal_rate = 20  # Degrees per second (limits pitch/yaw changes)
 
     camera_angle_pitch = 0
@@ -275,7 +287,7 @@ if __name__ == "__main__":
     mouse_x, mouse_y = 0, 0
     launched = False
     running = True
-    clock = pygame.time.Clock()
+
     time_values = []
     t = 0
 
@@ -301,42 +313,46 @@ if __name__ == "__main__":
                 if event.key == pygame.K_ESCAPE:
                     running = False
 
-        keys = pygame.key.get_pressed()
-        if keys[K_SPACE]:
-            launched = True
-
         mouse_x, mouse_y = pygame.mouse.get_rel()
         camera_angle_pitch += mouse_y / 10
         camera_angle_yaw -= mouse_x / 10
 
-        return_rate = max_gimbal_rate * dt * 0.5
-        if keys[K_a]:
-            rocket.update_thruster_deflection_simple(rocket.thrust_pitch_local - (max_gimbal_rate * dt),
-                                                     rocket.thrust_yaw_local, dt)
-        if keys[K_d]:
-            rocket.update_thruster_deflection_simple(rocket.thrust_pitch_local + (max_gimbal_rate * dt),
-                                                     rocket.thrust_yaw_local, dt)
-        if keys[K_s]:
-            rocket.update_thruster_deflection_simple(rocket.thrust_pitch_local,
-                                                     rocket.thrust_yaw_local - (max_gimbal_rate * dt), dt)
-        if keys[K_w]:
-            rocket.update_thruster_deflection_simple(rocket.thrust_pitch_local,
-                                                     rocket.thrust_yaw_local + (max_gimbal_rate * dt), dt)
+        keys = pygame.key.get_pressed()
+        if keys[K_SPACE]:
+            launched = True
 
-        if not (keys[K_a] or keys[K_d]) and rocket.thrust_pitch_local > 0:
-            rocket.thrust_pitch_local = max(0, rocket.thrust_pitch_local - return_rate)
-        elif not (keys[K_a] or keys[K_d]) and rocket.thrust_pitch_local < 0:
-            rocket.thrust_pitch_local = min(0, rocket.thrust_pitch_local + return_rate)
+        if angles:
+            target_yaw, target_pitch = get_current_waypoint(t, angles)
+            target_pitch = rp.convert_target_pitch_yup_to_ned(target_pitch)
+            rocket.update_thruster_deflection(target_pitch, target_yaw, pid_thruster_control)
 
-        if not (keys[K_w] or keys[K_s]) and rocket.thrust_yaw_local > 0:
-            rocket.thrust_yaw_local = max(0, rocket.thrust_yaw_local - return_rate)
-        elif not (keys[K_w] or keys[K_s]) and rocket.thrust_yaw_local < 0:
-            rocket.thrust_yaw_local = min(0, rocket.thrust_yaw_local + return_rate)
+        else:
+            return_rate = max_gimbal_rate * dt * 0.5
+            if keys[K_a]:
+                rocket.update_thruster_deflection_simple(rocket.thrust_pitch_local - (max_gimbal_rate * dt),
+                                                         rocket.thrust_yaw_local, dt)
+            if keys[K_d]:
+                rocket.update_thruster_deflection_simple(rocket.thrust_pitch_local + (max_gimbal_rate * dt),
+                                                         rocket.thrust_yaw_local, dt)
+            if keys[K_s]:
+                rocket.update_thruster_deflection_simple(rocket.thrust_pitch_local,
+                                                         rocket.thrust_yaw_local - (max_gimbal_rate * dt), dt)
+            if keys[K_w]:
+                rocket.update_thruster_deflection_simple(rocket.thrust_pitch_local,
+                                                         rocket.thrust_yaw_local + (max_gimbal_rate * dt), dt)
+
+            if not (keys[K_a] or keys[K_d]) and rocket.thrust_pitch_local > 0:
+                rocket.thrust_pitch_local = max(0, rocket.thrust_pitch_local - return_rate)
+            elif not (keys[K_a] or keys[K_d]) and rocket.thrust_pitch_local < 0:
+                rocket.thrust_pitch_local = min(0, rocket.thrust_pitch_local + return_rate)
+
+            if not (keys[K_w] or keys[K_s]) and rocket.thrust_yaw_local > 0:
+                rocket.thrust_yaw_local = max(0, rocket.thrust_yaw_local - return_rate)
+            elif not (keys[K_w] or keys[K_s]) and rocket.thrust_yaw_local < 0:
+                rocket.thrust_yaw_local = min(0, rocket.thrust_yaw_local + return_rate)
 
         if launched:
             rp.update_flight_time(rocket, dt)
-
-            thrust_force = rocket.get_thrust()
 
             pitch_torque, yaw_torque, _ = rp.get_torque(rocket)
             roll_torque = 0
@@ -356,9 +372,20 @@ if __name__ == "__main__":
             t += dt
             time_values.append(t)
 
-        display(font, rocket)
+        display(font, screen_width, screen_height, rocket, camera_angle_yaw, camera_angle_pitch, stars)
 
-    pygame.event.set_grab(False)
-    pygame.mouse.set_visible(True)
     plot(rocket, time_values, show_orientation = True)
     pygame.quit()
+
+
+if __name__ == "__main__":
+    thrust_vector_waypoints_pitch = {0: {"yaw": 0, "pitch": 0},
+                                     10: {"yaw": 15, "pitch": -45},
+                                     20: {"yaw": 15, "pitch": -45},
+                                     30: {"yaw": 90, "pitch": -90},
+                                     40: {"yaw": 120, "pitch": -90}}
+
+
+    run_pygame_simulation() # thrust_vector_waypoints_pitch, pid_thruster_control=True)
+
+

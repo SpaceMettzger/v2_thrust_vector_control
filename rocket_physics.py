@@ -32,6 +32,13 @@ def update_flight_time(rocket: Rocket, dt):
     """
     rocket.flight_time += dt
 
+def limit_angle(angle):
+    if angle < 0:
+        return angle + 360
+    if angle > 360:
+        return angle - 360
+    return angle
+
 
 def update_angular_motion(rocket: Rocket, time_step=1, damping_factor=0.2):
     """

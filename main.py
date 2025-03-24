@@ -13,9 +13,6 @@ def run_simulation(thrust_vector_waypoints, vector_control: bool = True, pid_thr
     total_time = 10000  # s
 
     time_values = []
-    x_positions = []
-    y_positions = []
-    z_positions = []
 
     target_pitch, target_yaw = 0, 0
 
@@ -50,9 +47,6 @@ def run_simulation(thrust_vector_waypoints, vector_control: bool = True, pid_thr
         rp.update_position(rocket, time_step)
 
         time_values.append(t)
-        x_positions.append(rocket.x_position)
-        y_positions.append(rocket.y_position)
-        z_positions.append(rocket.z_position)
 
         rocket.record_rocket_params()
 
@@ -60,15 +54,7 @@ def run_simulation(thrust_vector_waypoints, vector_control: bool = True, pid_thr
 
     print(max(rocket.records['lateral_velocities']))
 
-    initial_position = np.array([x_positions[0], y_positions[0]])
-    final_position = np.array([x_positions[-1], y_positions[-1]])
-
-    # Compute range as horizontal displacement
-    range_distance = np.linalg.norm(final_position - initial_position)
-
-    print("Rocket altitude:", max(z_positions))
     print("Max Thrust: ", max(rocket.records['thrust_values']))
-    print("Rocket range:", range_distance)
 
     return rocket, time_values
 
