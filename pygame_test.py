@@ -358,5 +358,7 @@ if __name__ == "__main__":
 
         display(font, rocket)
 
+    pygame.event.set_grab(False)
+    pygame.mouse.set_visible(True)
     plot(rocket, time_values, show_orientation = True)
     pygame.quit()
